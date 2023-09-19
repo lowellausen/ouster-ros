@@ -598,7 +598,7 @@ void OusterSensor::configure_sensor(const std::string& hostname,
                         is_configured = true;
                     }
                 } catch (const std::exception& e) {
-                    NODELET_ERROR("Error setting config:  %s", e.what());
+                     RCLCPP_ERROR(get_logger(), "Error setting config:  %s", e.what());
                 }
 
             }
