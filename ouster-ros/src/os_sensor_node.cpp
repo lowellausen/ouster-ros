@@ -573,23 +573,41 @@ uint8_t OusterSensor::compose_config_flags(
 
 void OusterSensor::configure_sensor(const std::string& hostname,
                                     sensor::sensor_config& config) {
-    if (config.udp_dest && sensor::in_multicast(config.udp_dest.value()) &&
-        !mtp_main) {
-        if (!get_config(hostname, config, true)) {
-            RCLCPP_ERROR(get_logger(), "Error getting active config");
-        } else {
-            RCLCPP_INFO(get_logger(), "Retrived active config of sensor");
+
+    bool is_configured = false;
+    bool is_first_attempt = true;
+
+    do {
+        // Throttling
+        if (!is_first_attempt) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            if (config.udp_dest && sensor::in_multicast(config.udp_dest.value()) &&
+                !mtp_main) {
+                if (!get_config(hostname, config, true)) {
+                    RCLCPP_ERROR(get_logger(), "Error getting active config");
+                } else {
+                    RCLCPP_INFO(get_logger(), "Retrived active config of sensor");
+                }
+                return;
+            } else {
+                try {
+                    uint8_t config_flags = compose_config_flags(config);
+                    if (!set_config(hostname, config, config_flags)) {
+                        RCLCPP_ERROR(get_logger(), "Error getting active config");
+                    } else {
+                        is_configured = true;
+                    }
+                } catch (const std::exception& e) {
+                    NODELET_ERROR("Error setting config:  %s", e.what());
+                }
+
+            }
+
         }
-        return;
-    }
-
-    uint8_t config_flags = compose_config_flags(config);
-    if (!set_config(hostname, config, config_flags)) {
-        throw std::runtime_error("Error connecting to sensor " + hostname);
-    }
-
+        is_first_attempt = false;
+    } while (!is_configured /*&& retry_configuration*/);
     RCLCPP_INFO_STREAM(get_logger(),
-                       "Sensor " << hostname << " configured successfully");
+                   "Sensor " << hostname << " configured successfully");
 }
 
 // fill in values that could not be parsed from metadata
@@ -699,6 +717,10 @@ void OusterSensor::handle_lidar_packet(sensor::client& cli,
     lidar_packets->write_overwrite([this, &cli, pf](uint8_t* buffer) {
         bool success = sensor::read_lidar_packet(cli, buffer, pf);
         if (success) {
+
+//            had_reconnection_success = false;
+//            first_lidar_data_rx = ros::Time::now();
+
             read_lidar_packet_errors = 0;
             if (!is_legacy_lidar_profile(info) && init_id_changed(pf, buffer)) {
                 // TODO: short circut reset if no breaking changes occured?
