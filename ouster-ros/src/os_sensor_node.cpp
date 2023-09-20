@@ -585,19 +585,25 @@ void OusterSensor::configure_sensor(const std::string& hostname,
     bool is_configured = false;
     bool is_first_attempt = true;
 
+    RCLCPP_WARN(get_logger(), "Starting of sensor");
+
     do {
         // Throttling
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        RCLCPP_WARN(get_logger(), "After sleeping");
         if (!is_first_attempt) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            RCLCPP_WARN(get_logger(), "INside first attempt");
             if (config.udp_dest && sensor::in_multicast(config.udp_dest.value()) &&
                 !mtp_main) {
+                RCLCPP_WARN(get_logger(), "INside first if");
                 if (!get_config(hostname, config, true)) {
                     RCLCPP_ERROR(get_logger(), "Error getting active config");
                 } else {
-                    RCLCPP_INFO(get_logger(), "Retrived active config of sensor");
+                    RCLCPP_INFO(get_logger(), "Retrieved active config of sensor");
                 }
                 return;
             } else {
+            RCLCPP_WARN(get_logger(), "INside else");
                 try {
                     uint8_t config_flags = compose_config_flags(config);
                     if (!set_config(hostname, config, config_flags)) {
