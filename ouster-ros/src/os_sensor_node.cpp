@@ -581,8 +581,6 @@ void OusterSensor::configure_sensor(const std::string& hostname,
 
     do {
         // Throttling
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        RCLCPP_WARN(get_logger(), "After sleeping");
         if (!is_first_attempt) {
             RCLCPP_WARN(get_logger(), "INside first attempt");
             if (config.udp_dest && sensor::in_multicast(config.udp_dest.value()) &&
@@ -611,6 +609,8 @@ void OusterSensor::configure_sensor(const std::string& hostname,
 
         }
         is_first_attempt = false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        RCLCPP_WARN(get_logger(), "After sleeping");
     } while (!is_configured /*&& retry_configuration*/);
     RCLCPP_INFO_STREAM(get_logger(),
                    "Sensor " << hostname << " configured successfully");
