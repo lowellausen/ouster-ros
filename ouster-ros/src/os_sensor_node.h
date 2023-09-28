@@ -184,6 +184,10 @@ class OusterSensor : public OusterSensorNodeBase {
     // TODO: add as a ros parameter
     const int max_read_imu_packet_errors = 60;
     int read_imu_packet_errors = 0;
+
+    bool had_reconnection_success = false;
+    bool retry_configuration = false;
+    ros::Time first_lidar_data_rx = rclcpp::Clock(0.0); //rclcpp::Clock(RCL_ROS_TIME).now();
 };
 
 }  // namespace ouster_ros

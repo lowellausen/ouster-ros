@@ -51,6 +51,7 @@ void OusterSensor::declare_parameters() {
     declare_parameter<std::string>("timestamp_mode", "");
     declare_parameter<std::string>("udp_profile_lidar", "");
     declare_parameter("use_system_default_qos", false);
+    declare_parameter<bool>("retry_configuration", false);
 }
 
 LifecycleNodeInterface::CallbackReturn OusterSensor::on_configure(
@@ -529,6 +530,8 @@ sensor::sensor_config OusterSensor::parse_config_from_ros_parameters() {
         }
     }
 
+    retry_configuration = get_parameter("retry_configuration").as_bool();
+
     return config;
 }
 
@@ -611,7 +614,7 @@ void OusterSensor::configure_sensor(const std::string& hostname,
         is_first_attempt = false;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         RCLCPP_WARN(get_logger(), "After sleeping");
-    } while (!is_configured /*&& retry_configuration*/);
+    } while (!is_configured && retry_configuration);
     RCLCPP_INFO_STREAM(get_logger(),
                    "Sensor " << hostname << " configured successfully");
 }
@@ -724,8 +727,8 @@ void OusterSensor::handle_lidar_packet(sensor::client& cli,
         bool success = sensor::read_lidar_packet(cli, buffer, pf);
         if (success) {
 
-//            had_reconnection_success = false;
-//            first_lidar_data_rx = ros::Time::now();
+            had_reconnection_success = false;
+            first_lidar_data_rx = rclcpp::Clock(RCL_ROS_TIME).now();
 
             read_lidar_packet_errors = 0;
             if (!is_legacy_lidar_profile(info) && init_id_changed(pf, buffer)) {
