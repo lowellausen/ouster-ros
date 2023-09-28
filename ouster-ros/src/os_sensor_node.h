@@ -187,7 +187,7 @@ class OusterSensor : public OusterSensorNodeBase {
 
     bool had_reconnection_success = false;
     bool retry_configuration = false;
-    rclcpp::Clock first_lidar_data_rx = rclcpp::Clock(0.0); //rclcpp::Clock(RCL_ROS_TIME).now();
+    Time first_lidar_data_rx = rclcpp::Clock(RCL_ROS_TIME).now();
 };
 
 }  // namespace ouster_ros
