@@ -86,3 +86,4 @@ ouster/os_driver:
     # - ouster_ros/sensor_point_types.h
     # - ouster_ros/common_point_types.h.
     point_type: original
+    retry_configuration: false
