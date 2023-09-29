@@ -105,7 +105,7 @@ class OusterSensor : public OusterSensorNodeBase {
 
     uint8_t compose_config_flags(const sensor::sensor_config& config);
 
-    void configure_sensor(const std::string& hostname,
+    bool configure_sensor(const std::string& hostname,
                           sensor::sensor_config& config);
 
     std::string load_config_file(const std::string& config_file);
@@ -187,7 +187,8 @@ class OusterSensor : public OusterSensorNodeBase {
 
     bool had_reconnection_success = false;
     bool retry_configuration = false;
-    std::Time first_lidar_data_rx = rclcpp::Clock(RCL_ROS_TIME).now();
+    rclcpp::Time first_lidar_data_rx = rclcpp::Time(0, 0);
+    sensor::sensor_config config;
 };
 
 }  // namespace ouster_ros
