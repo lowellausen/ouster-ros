@@ -507,7 +507,7 @@ sensor::sensor_config OusterSensor::parse_config_from_ros_parameters() {
         }
     }
 
-    sensor::sensor_config config;
+    config;
     if (lidar_port == 0) {
         RCLCPP_WARN_EXPRESSION(
             get_logger(), !is_arg_set(mtp_dest_arg),
@@ -544,7 +544,7 @@ sensor::sensor_config OusterSensor::parse_config_from_ros_parameters() {
 }
 
 sensor::sensor_config OusterSensor::parse_config_from_staged_config_string() {
-    sensor::sensor_config config = sensor::parse_config(staged_config);
+    config = sensor::parse_config(staged_config);
     staged_config.clear();
     return config;
 }
@@ -582,7 +582,7 @@ uint8_t OusterSensor::compose_config_flags(
     return config_flags;
 }
 
-void OusterSensor::configure_sensor(const std::string& hostname,
+bool OusterSensor::configure_sensor(const std::string& hostname,
                                     sensor::sensor_config& config) {
 
     bool is_configured = false;
@@ -602,7 +602,7 @@ void OusterSensor::configure_sensor(const std::string& hostname,
                 } else {
                     RCLCPP_INFO(get_logger(), "Retrieved active config of sensor");
                 }
-                return;
+//                return is_configured;
             } else {
             RCLCPP_WARN(get_logger(), "INside else");
                 try {
@@ -625,6 +625,8 @@ void OusterSensor::configure_sensor(const std::string& hostname,
     } while (!is_configured && retry_configuration);
     RCLCPP_INFO_STREAM(get_logger(),
                    "Sensor " << hostname << " configured successfully");
+
+    return is_configured;
 }
 
 // fill in values that could not be parsed from metadata
@@ -734,7 +736,6 @@ void OusterSensor::handle_lidar_packet(sensor::client& cli,
     lidar_packets->write_overwrite([this, &cli, pf](uint8_t* buffer) {
         bool success = sensor::read_lidar_packet(cli, buffer, pf);
         if (success) {
-
             had_reconnection_success = false;
             first_lidar_data_rx = rclcpp::Clock(RCL_ROS_TIME).now();
 
@@ -789,6 +790,8 @@ void OusterSensor::cleanup() {
 
 void OusterSensor::connection_loop(sensor::client& cli,
                                    const sensor::packet_format& pf) {
+
+    static constexpr double TIMEOUT = 3.0;
     auto state = sensor::poll_client(cli);
     if (state == sensor::EXIT) {
         RCLCPP_INFO(get_logger(), "poll_client: caught signal, exiting!");
@@ -801,6 +804,15 @@ void OusterSensor::connection_loop(sensor::client& cli,
     poll_client_error_count = 0;
     if (state & sensor::LIDAR_DATA) {
         handle_lidar_packet(cli, pf);
+    }  else if (!had_reconnection_success &&
+             (first_lidar_data_rx.seconds() != (rclcpp::Time(0, 0).seconds())) &&
+             (rclcpp::Clock(RCL_ROS_TIME).now().seconds() - first_lidar_data_rx.seconds()) > TIMEOUT) {
+        RCLCPP_ERROR(get_logger(),"poll_client: attempting reconnection");
+        had_reconnection_success = configure_sensor(sensor_hostname, config);
+
+        if (had_reconnection_success) {
+            sensor_client = create_sensor_client(sensor_hostname, config);
+        }
     }
     if (state & sensor::IMU_DATA) {
         handle_imu_packet(cli, pf);
