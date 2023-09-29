@@ -106,7 +106,7 @@ class OusterSensor : public OusterSensorNodeBase {
     uint8_t compose_config_flags(const sensor::sensor_config& config);
 
     bool configure_sensor(const std::string& hostname,
-                          sensor::sensor_config& config);
+                          sensor::sensor_config& config, bool retry);
 
     std::string load_config_file(const std::string& config_file);
 

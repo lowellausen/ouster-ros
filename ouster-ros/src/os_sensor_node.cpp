@@ -63,7 +63,7 @@ LifecycleNodeInterface::CallbackReturn OusterSensor::on_configure(
         auto config = staged_config.empty()
                           ? parse_config_from_ros_parameters()
                           : parse_config_from_staged_config_string();
-        configure_sensor(sensor_hostname, config);
+        configure_sensor(sensor_hostname, config, retry_configuration);
         sensor_client = create_sensor_client(sensor_hostname, config);
         if (!sensor_client)
             return LifecycleNodeInterface::CallbackReturn::FAILURE;
@@ -575,37 +575,31 @@ uint8_t OusterSensor::compose_config_flags(
 }
 
 bool OusterSensor::configure_sensor(const std::string& hostname,
-                                    sensor::sensor_config& config) {
+                                    sensor::sensor_config& config, bool retry) {
 
     bool is_configured = false;
     bool is_first_attempt = true;
 
-    RCLCPP_WARN(get_logger(), "Starting of sensor");
-
     do {
         // Throttling
         if (!is_first_attempt) {
-            RCLCPP_WARN(get_logger(), "INside first attempt");
             if (config.udp_dest && sensor::in_multicast(config.udp_dest.value()) &&
                 !mtp_main) {
-                RCLCPP_WARN(get_logger(), "INside first if");
                 if (!get_config(hostname, config, true)) {
-                    RCLCPP_ERROR(get_logger(), "Error getting active config");
+                    RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 15000, "Error getting active config");
                 } else {
                     RCLCPP_INFO(get_logger(), "Retrieved active config of sensor");
                 }
-//                return is_configured;
             } else {
-            RCLCPP_WARN(get_logger(), "INside else");
                 try {
                     uint8_t config_flags = compose_config_flags(config);
                     if (!set_config(hostname, config, config_flags)) {
-                        RCLCPP_ERROR(get_logger(), "Error getting active config");
+                        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 15000,  "Error getting active config");
                     } else {
                         is_configured = true;
                     }
                 } catch (const std::exception& e) {
-                     RCLCPP_ERROR(get_logger(), "Error setting config:  %s", e.what());
+                     RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 15000, "Error setting config:  %s", e.what());
                 }
 
             }
@@ -613,10 +607,14 @@ bool OusterSensor::configure_sensor(const std::string& hostname,
         }
         is_first_attempt = false;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        RCLCPP_WARN(get_logger(), "After sleeping");
-    } while (!is_configured && retry_configuration);
-    RCLCPP_INFO_STREAM(get_logger(),
-                   "Sensor " << hostname << " configured successfully");
+    } while (!is_configured && retry);
+
+    if (is_configured)
+        RCLCPP_INFO_STREAM(get_logger(),
+                       "Sensor " << hostname  << " configured successfully" );
+    else
+        RCLCPP_INFO_STREAM_THROTTLE(get_logger(), *get_clock(), 15000,
+                       "Sensor " << hostname  << " not configured successfully" );
 
     return is_configured;
 }
@@ -796,11 +794,11 @@ void OusterSensor::connection_loop(sensor::client& cli,
     poll_client_error_count = 0;
     if (state & sensor::LIDAR_DATA) {
         handle_lidar_packet(cli, pf);
-    }  else if (!had_reconnection_success &&
+    }  else if (!had_reconnection_success && retry_configuration &&
              (first_lidar_data_rx.seconds() != (rclcpp::Time(0, 0).seconds())) &&
              (rclcpp::Clock(RCL_ROS_TIME).now().seconds() - first_lidar_data_rx.seconds()) > TIMEOUT) {
-        RCLCPP_ERROR(get_logger(),"poll_client: attempting reconnection");
-        had_reconnection_success = configure_sensor(sensor_hostname, config);
+        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 15000, "poll_client: attempting reconnection");
+        had_reconnection_success = configure_sensor(sensor_hostname, config, false);
 
         if (had_reconnection_success) {
             sensor_client = create_sensor_client(sensor_hostname, config);
