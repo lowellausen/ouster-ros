@@ -553,7 +553,7 @@ uint8_t OusterSensor::compose_config_flags(
     const sensor::sensor_config& config) {
     uint8_t config_flags = 0;
     if (config.udp_dest) {
-        RCLCPP_INFO_STREAM(get_logger(),
+        RCLCPP_INFO_STREAM_THROTTLE(get_logger(), *get_clock(), THROTTLING_TIME,
                            "Will send UDP data to " << config.udp_dest.value());
         // TODO: revise multicast setup inference
         if (sensor::in_multicast(*config.udp_dest)) {
@@ -594,7 +594,7 @@ bool OusterSensor::configure_sensor(const std::string& hostname,
             if (config.udp_dest && sensor::in_multicast(config.udp_dest.value()) &&
                 !mtp_main) {
                 if (!get_config(hostname, config, true)) {
-                    RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 15000, "Error getting active config");
+                    RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), THROTTLING_TIME, "Error getting active config");
                 } else {
                     RCLCPP_INFO(get_logger(), "Retrieved active config of sensor");
                 }
@@ -602,12 +602,12 @@ bool OusterSensor::configure_sensor(const std::string& hostname,
                 try {
                     uint8_t config_flags = compose_config_flags(config);
                     if (!set_config(hostname, config, config_flags)) {
-                        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 15000,  "Error getting active config");
+                        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), THROTTLING_TIME,  "Error getting active config");
                     } else {
                         is_configured = true;
                     }
                 } catch (const std::exception& e) {
-                     RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 15000, "Error setting config:  %s", e.what());
+                     RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), THROTTLING_TIME, "Error setting config:  %s", e.what());
                 }
 
             }
@@ -621,7 +621,7 @@ bool OusterSensor::configure_sensor(const std::string& hostname,
         RCLCPP_INFO_STREAM(get_logger(),
                        "Sensor " << hostname  << " configured successfully" );
     else
-        RCLCPP_INFO_STREAM_THROTTLE(get_logger(), *get_clock(), 15000,
+        RCLCPP_INFO_STREAM_THROTTLE(get_logger(), *get_clock(), THROTTLING_TIME,
                        "Sensor " << hostname  << " not configured successfully" );
 
     return is_configured;
@@ -805,7 +805,7 @@ void OusterSensor::connection_loop(sensor::client& cli,
     }  else if (!had_reconnection_success && retry_configuration &&
              (first_lidar_data_rx.seconds() != (rclcpp::Time(0, 0).seconds())) &&
              (rclcpp::Clock(RCL_ROS_TIME).now().seconds() - first_lidar_data_rx.seconds()) > TIMEOUT) {
-        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 15000, "poll_client: attempting reconnection");
+        RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), THROTTLING_TIME, "poll_client: attempting reconnection");
         had_reconnection_success = configure_sensor(sensor_hostname, config, false);
 
         if (had_reconnection_success) {
