@@ -28,6 +28,8 @@
 
 #include "thread_safe_ring_buffer.h"
 
+#define THROTTLING_TIME 10000
+
 namespace sensor = ouster::sensor;
 using lifecycle_msgs::srv::ChangeState;
 using rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface;
